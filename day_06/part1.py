@@ -1,66 +1,51 @@
 from math import sqrt
 import sys
+import time
 
 sys.set_int_max_str_digits(16900)
+
+NEW_DIR = {0: 1, 1: 2, 2: 3, 3: 0}
+LEFT_MASK = int(("1" * 129 + "0") * 130, 2)
+RIGHT_MASK = int(("0" + "1" * 129) * 130, 2)
+
 
 def clamp(bit_string):
     """clamp the bitstring to maximum 16900 bits"""
     return bit_string & ((1 << 16900) - 1)
 
+
 def move_bit_string(bit_string, direction):
     """Return the new bit string after moving"""
-    size = int(sqrt(len(bit_string)))
+    size = 130
 
-    if direction % 2 == 0:
+    if direction == 0 or direction == 2:
         # moving up or down
         shift = size
     else:
         shift = 1
 
     if direction == 0 or direction == 3:
-        res = int(bit_string, 2) << shift
+        res = bit_string << shift
+        # make sure there is no "teleportation"
+        res = res & LEFT_MASK
     else:
-        res = int(bit_string, 2) >> shift
+        res = bit_string >> shift
+        res = res & RIGHT_MASK
 
     # ensure the length of the bit string is the same
     res = clamp(res)
 
-    res_str = format(res, f"0{len(bit_string)}b")
-
-    assert len(res_str) == len(bit_string)
-
-    return res_str
-
-
-def and_bit_string(bit_string, obstacles):
-    """Perform a bitwise and on the bit string and obstacles"""
-    res = int(bit_string, 2) & int(obstacles, 2)
-    res_str = format(res, f"0{len(bit_string)}b")
-    return res_str
-
-
-def or_bit_string(bit_string, visited):
-    """Perform a bitwise or on the bit string and visited string"""
-    res = int(bit_string, 2) | int(visited, 2)
-    res_str = format(res, f"0{len(bit_string)}b")
-    return res_str
+    return res
 
 
 def update_bit_string(bit_string, obstacles, direction):
     """Move the bit string in the given direction
     return the updated bit string and the new direction if applicable
-
-    up: shift left by 130
-    right: shift right by 1
-    down: shift right by 130
-    left: shift left by 1
     """
     new_bit_string = move_bit_string(bit_string, direction)
-
     # if an obstacle is in the way of the next move
-    change_direction = and_bit_string(new_bit_string, obstacles)
-    # print(f"change_direction: {change_direction}")
-    if "1" in change_direction:
+    change_direction = new_bit_string & obstacles
+    if change_direction:
         direction = (direction + 1) % 4
         return bit_string, direction
 
@@ -89,25 +74,22 @@ def part1():
     # create a bit string for the current position and whole grid
     grid_repr_string = "".join(grid_repr)
 
-    visited = "".join("0" for _ in grid_repr_string)
-    cur_pos = "".join("0" if c != "^" else "1" for c in grid_repr_string)
-    obstacles = "".join("1" if c == "#" else "0" for c in grid_repr_string)
-
+    visited = int("".join("0" for _ in grid_repr_string), 2)
+    cur_pos = int("".join("0" if c != "^" else "1" for c in grid_repr_string), 2)
+    obstacles = int("".join("1" if c == "#" else "0" for c in grid_repr_string), 2)
 
     # 0 = up, 1 = right, 2 = down, 3 = left, use +1 mod 4
     direction = 0
 
-    while "1" in cur_pos:
+    while cur_pos:
         cur_pos, direction = update_bit_string(cur_pos, obstacles, direction)
-        visited = or_bit_string(visited, cur_pos)
-        
+        visited = visited | cur_pos
 
-    assert "1" not in cur_pos
-    assert int(cur_pos, 2) == 0
-    # assert int(and_bit_string(visited, obstacles)) == 0
+    visited_str = format(visited, f"0{len(grid_repr_string)}b")
+    obstacles = format(obstacles, f"0{len(grid_repr_string)}b")
 
+    return visited_str.count("1")
 
-    return sum(int(c) for c in visited)
 
 if __name__ == "__main__":
     print(part1())
